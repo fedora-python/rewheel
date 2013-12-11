@@ -20,10 +20,21 @@ def rewheel_from_record(record_path):
     record_contents = open(record_path).read()
     recfiles = get_records_to_pack(record_contents)
     site_dir = os.path.dirname(os.path.dirname(record_path))
+
     new_wheel = zipfile.ZipFile('foo.zip', mode='w', compression=zipfile.ZIP_DEFLATED)
+    # we need to write a new record with just the files that we will write,
+    # e.g. not binaries and *.pyc/*.pyo files
+    new_record_lines = []
     for f, sha_hash, size in recfiles:
         new_wheel.write(os.path.join(site_dir, f), arcname=f)
+        new_record_lines.append(','.join([f, sha_hash,size]))
+
+    # rewrite the old wheel file with a new computed one
+    record_relpath = record_path[len(site_dir):].strip(os.path.sep)
+    new_wheel.writestr(record_relpath, '\n'.join(new_record_lines))
+
     new_wheel.close()
+
     return new_wheel.filename
 
 def get_records_to_pack(record_contents):
