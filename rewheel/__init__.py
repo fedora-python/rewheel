@@ -1,5 +1,6 @@
 import argparse
 import csv
+import email.parser
 import os
 import io
 import sys
@@ -24,12 +25,15 @@ def rewheel_from_record(record_path):
     site_dir = os.path.dirname(os.path.dirname(record_path))
     record_relpath = record_path[len(site_dir):].strip(os.path.sep)
     to_write, to_omit = get_records_to_pack(site_dir, record_relpath)
+    new_wheel_name = get_wheel_name(record_path) + '.whl'
 
-    new_wheel = zipfile.ZipFile('foo.zip', mode='w', compression=zipfile.ZIP_DEFLATED)
+    new_wheel = zipfile.ZipFile(new_wheel_name, mode='w', compression=zipfile.ZIP_DEFLATED)
     # we need to write a new record with just the files that we will write,
     # e.g. not binaries and *.pyc/*.pyo files
     new_record = io.StringIO()
     writer = csv.writer(new_record)
+
+    # handle files that we can write straight away
     for f, sha_hash, size in to_write:
         new_wheel.write(os.path.join(site_dir, f), arcname=f)
         writer.writerow([f, sha_hash,size])
@@ -41,6 +45,26 @@ def rewheel_from_record(record_path):
     new_wheel.close()
 
     return new_wheel.filename
+
+def get_wheel_name(record_path):
+    """Return proper name of the wheel, without .whl."""
+    wheel_info_path = os.path.join(os.path.dirname(record_path), 'WHEEL')
+    wheel_info = email.parser.Parser().parsestr(open(wheel_info_path).read())
+    metadata_path = os.path.join(os.path.dirname(record_path), 'METADATA')
+    metadata = email.parser.Parser().parsestr(open(metadata_path).read())
+
+    # construct name parts according to wheel spec
+    distribution = metadata.get('Name')
+    version = metadata.get('Version')
+    build_tag = '' # nothing for now
+    lang_tag = []
+    for t in wheel_info.get_all('Tag'):
+        lang_tag.append(t.split('-')[0])
+    lang_tag = '.'.join(lang_tag)
+    abi_tag, plat_tag = wheel_info.get('Tag').split('-')[1:3]
+    # leave out build tag, if it is empty
+    to_join = filter(None, [distribution, version, build_tag, lang_tag, abi_tag, plat_tag])
+    return '-'.join(list(to_join))
 
 def get_records_to_pack(site_dir, record_relpath):
     """Accepts path of sitedir and path of RECORD file relative to it.
