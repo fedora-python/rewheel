@@ -35,6 +35,7 @@ def rewheel_from_record(record_path):
         writer.writerow([f, sha_hash,size])
 
     # rewrite the old wheel file with a new computed one
+    writer.writerow([record_relpath, '', ''])
     new_wheel.writestr(record_relpath, new_record.getvalue())
 
     new_wheel.close()
