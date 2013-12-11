@@ -14,11 +14,11 @@ setup(
     keywords = 'some, keywords',
     author = 'yourname',
     author_email = 'yourmail',
-    license = 'GPLv2',
+    license = 'MIT',
     packages = find_packages(),
     classifiers = ['Development Status :: 3 - Alpha',
                    'Intended Audience :: Developers',
-                   'License :: OSI Approved :: GNU General Public License v2 (GPLv2)',
+                   'License :: OSI Approved :: MIT License',
                    'Operating System :: POSIX :: Linux',
                    'Programming Language :: Python',
                   ]
