@@ -1,5 +1,7 @@
 import argparse
+import csv
 import os
+import io
 import sys
 import zipfile
 
@@ -26,13 +28,14 @@ def rewheel_from_record(record_path):
     new_wheel = zipfile.ZipFile('foo.zip', mode='w', compression=zipfile.ZIP_DEFLATED)
     # we need to write a new record with just the files that we will write,
     # e.g. not binaries and *.pyc/*.pyo files
-    new_record_lines = []
+    new_record = io.StringIO()
+    writer = csv.writer(new_record)
     for f, sha_hash, size in to_write:
         new_wheel.write(os.path.join(site_dir, f), arcname=f)
-        new_record_lines.append(','.join([f, sha_hash,size]))
+        writer.writerow([f, sha_hash,size])
 
     # rewrite the old wheel file with a new computed one
-    new_wheel.writestr(record_relpath, '\n'.join(new_record_lines))
+    new_wheel.writestr(record_relpath, new_record.getvalue())
 
     new_wheel.close()
 
