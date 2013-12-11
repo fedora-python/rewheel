@@ -8,26 +8,32 @@ import zipfile
 
 def run():
     parser = argparse.ArgumentParser(description='Recreate wheel of package with given RECORD.')
-    parser.add_argument('record', help='Path to RECORD file')
+    parser.add_argument('record_path',
+                        help='Path to RECORD file')
+    parser.add_argument('-o', '--output-dir',
+                        help='Dir where to place the wheel, defaults to current working dir.',
+                        dest='outdir',
+                        default=os.path.curdir)
 
     ns = parser.parse_args()
     retcode = 0
     try:
-        print(rewheel_from_record(vars(ns)['record']))
+        print(rewheel_from_record(**vars(ns)))
     except BaseException as e:
         print('Failed: {}'.format(e))
         retcode = 1
     sys.exit(1)
 
-def rewheel_from_record(record_path):
+def rewheel_from_record(record_path, outdir):
     """Recreates a whee of package with given record_path and returns path
     to the newly created wheel."""
     site_dir = os.path.dirname(os.path.dirname(record_path))
     record_relpath = record_path[len(site_dir):].strip(os.path.sep)
     to_write, to_omit = get_records_to_pack(site_dir, record_relpath)
-    new_wheel_name = get_wheel_name(record_path) + '.whl'
+    new_wheel_name = get_wheel_name(record_path)
+    new_wheel_path = os.path.join(outdir, new_wheel_name + '.whl')
 
-    new_wheel = zipfile.ZipFile(new_wheel_name, mode='w', compression=zipfile.ZIP_DEFLATED)
+    new_wheel = zipfile.ZipFile(new_wheel_path, mode='w', compression=zipfile.ZIP_DEFLATED)
     # we need to write a new record with just the files that we will write,
     # e.g. not binaries and *.pyc/*.pyo files
     new_record = io.StringIO()
