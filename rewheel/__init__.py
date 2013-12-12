@@ -80,6 +80,11 @@ def get_records_to_pack(site_dir, record_relpath):
       (pyc and pyo files, scripts)
     """
     record_contents = open(os.path.join(site_dir, record_relpath)).read()
+    # temporary fix for https://github.com/pypa/pip/issues/1376
+    # we need to ignore files under ".data" directory
+    data_dir = os.path.dirname(record_relpath).strip(os.path.sep)
+    data_dir = data_dir[:-len('dist-info')] + 'data'
+
     to_write = []
     to_omit = []
     for l in record_contents.splitlines():
@@ -92,7 +97,7 @@ def get_records_to_pack(site_dir, record_relpath):
             # TODO: is there any better way to recognize an entry point?
             if os.path.isabs(spl[0]) or spl[0].startswith('..') or \
                spl[0].endswith('.pyc') or spl[0].endswith('.pyo') or \
-               spl[0] == record_relpath:
+               spl[0] == record_relpath or spl[0].startswith(data_dir):
                 to_omit.append(spl)
             else:
                 to_write.append(spl)
