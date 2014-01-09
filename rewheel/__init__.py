@@ -3,6 +3,8 @@ import csv
 import email.parser
 import os
 import io
+import re
+import site
 import subprocess
 import sys
 import zipfile
@@ -32,28 +34,21 @@ def find_system_records(projects):
     of a path to its RECORD
     """
     records = []
+    # get system site-packages dirs
+    sys_sitepack = site.getsitepackages([sys.base_prefix, sys.base_exec_prefix])
+    sys_sitepack = [sp for sp in sys_sitepack if os.path.exists(sp)]
+    # try to find all projects in all system site-packages
     for project in projects:
-        try:
-            # if we're in a virtualenv, the only really reliable way to get paths
-            # to projects in system-wide installation is to run python with
-            # empty env and let it print the paths (is there something better?)
-            c = []
-            c.append('import os, pkg_resources')
-            c.append('d = pkg_resources.get_distribution("{proj}")')
-            c.append('di = d.project_name + "-" + d.version + ".dist-info"')
-            c.append('print(os.path.join(d.location, di, "RECORD"))')
-            c = ';'.join(c)
-            command = [
-                sys.executable,
-                '-c',
-                c.format(proj=project)
-            ]
-            out = subprocess.check_output(command, env={}, stderr=subprocess.STDOUT)
-            # TODO: maybe not utf-8, but something dynamic...
-            records.append(out.decode('utf-8').strip())
-        except subprocess.CalledProcessError:
-            # if there was any kind of error, just append None instead of path
-            records.append(None)
+        path = None
+        for sp in sys_sitepack:
+            dist_info_re = os.path.join(sp, project) + '-[^\{0}]+\.dist-info'.format(os.sep)
+            candidates = [os.path.join(sp, p) for p in os.listdir(sp)]
+            # filter out candidate dirs based on the above regexp
+            filtered = [c for c in candidates if re.match(dist_info_re, c)]
+            # if we have 0 or 2 or more dirs, something is wrong...
+            if len(filtered) == 1:
+                path = filtered[0]
+        records.append(os.path.join(path, 'RECORD'))
     return records
 
 def rewheel_from_record(record_path, outdir):
