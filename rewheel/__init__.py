@@ -3,6 +3,7 @@ import csv
 import email.parser
 import os
 import io
+import subprocess
 import sys
 import zipfile
 
@@ -23,6 +24,37 @@ def run():
         print('Failed: {}'.format(e))
         retcode = 1
     sys.exit(1)
+
+def find_system_records(projects):
+    """Return list of paths to RECORD files for system-installed projects.
+
+    If a project is not installed, the resulting list contains None instead
+    of a path to its RECORD
+    """
+    records = []
+    for project in projects:
+        try:
+            # if we're in a virtualenv, the only really reliable way to get paths
+            # to projects in system-wide installation is to run python with
+            # empty env and let it print the paths (is there something better?)
+            c = []
+            c.append('import os, pkg_resources')
+            c.append('d = pkg_resources.get_distribution("{proj}")')
+            c.append('di = d.project_name + "-" + d.version + ".dist-info"')
+            c.append('print(os.path.join(d.location, di, "RECORD"))')
+            c = ';'.join(c)
+            command = [
+                sys.executable,
+                '-c',
+                c.format(proj=project)
+            ]
+            out = subprocess.check_output(command, env={}, stderr=subprocess.STDOUT)
+            # TODO: maybe not utf-8, but something dynamic...
+            records.append(out.decode('utf-8').strip())
+        except subprocess.CalledProcessError:
+            # if there was any kind of error, just append None instead of path
+            records.append(None)
+    return records
 
 def rewheel_from_record(record_path, outdir):
     """Recreates a whee of package with given record_path and returns path
