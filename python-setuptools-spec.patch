@@ -1,0 +1,131 @@
+diff --git a/python-setuptools.spec b/python-setuptools.spec
+index 221c55f..4c30551 100644
+--- a/python-setuptools.spec
++++ b/python-setuptools.spec
+@@ -1,14 +1,23 @@
+ %if 0%{?fedora}
+ %global with_python3 1
++%global build_wheel 1
+ %else
+ %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print (get_python_lib())")}
+ %endif
+ 
+ %global srcname setuptools
++%if 0%{?build_wheel}
++%global python2_wheelname %{srcname}-%{version}-py2.py3-none-any.whl
++%global python2_record %{python2_sitelib}/%{srcname}-%{version}.dist-info/RECORD
++%if 0%{?with_python3}
++%global python3_wheelname %python2_wheelname
++%global python3_record %{python3_sitelib}/%{srcname}-%{version}.dist-info/RECORD
++%endif
++%endif
+ 
+ Name:           python-setuptools
+ Version:        2.0
+-Release:        1%{?dist}
++Release:        4%{?dist}
+ Summary:        Easily build and distribute Python packages
+ 
+ Group:          Applications/System
+@@ -25,8 +34,16 @@ BuildArch:      noarch
+ Requires: python-backports-ssl_match_hostname
+ BuildRequires: python-backports-ssl_match_hostname
+ BuildRequires:  python2-devel
++%if 0%{?build_wheel}
++BuildRequires:  python-pip
++BuildRequires:  python-wheel
++%endif
+ %if 0%{?with_python3}
+ BuildRequires:  python3-devel
++%if 0%{?build_wheel}
++BuildRequires:  python3-pip
++BuildRequires:  python3-wheel
++%endif
+ %endif # if with_python3
+ # For unittests
+ BuildRequires: subversion
+@@ -92,12 +109,19 @@ for file in setuptools/command/easy_install.py ; do
+ done
+ 
+ %build
+-
++%if 0%{?build_wheel}
++%{__python} setup.py bdist_wheel
++%else
+ CFLAGS="$RPM_OPT_FLAGS" %{__python} setup.py build
++%endif
+ 
+ %if 0%{?with_python3}
+ pushd %{py3dir}
++%if 0%{?build_wheel}
++%{__python3} setup.py bdist_wheel
++%else
+ CFLAGS="$RPM_OPT_FLAGS" %{__python3} setup.py build
++%endif
+ popd
+ %endif # with_python3
+ 
+@@ -110,9 +134,18 @@ rm -rf %{buildroot}
+ # Change to defaulting to python3 version in F22
+ %if 0%{?with_python3}
+ pushd %{py3dir}
++%if 0%{?build_wheel}
++pip3 install -I dist/%{python3_wheelname} --root %{buildroot} --strip-file-prefix %{buildroot}
++# TODO: we have to remove this by hand now, but it'd be nice if we wouldn't have to
++# (pip install wheel doesn't overwrite)
++rm %{buildroot}%{_bindir}/easy_install
++sed -i '/\/usr\/bin\/easy_install,/d' %{buildroot}%{python3_record}
++%else
+ %{__python3} setup.py install --skip-build --root %{buildroot}
++%endif
+ 
+ rm -rf %{buildroot}%{python3_sitelib}/setuptools/tests
++sed -i '/^setuptools\/tests\//d' %{buildroot}%{python3_record}
+ 
+ install -p -m 0644 %{SOURCE1} %{SOURCE2} %{py3dir}
+ find %{buildroot}%{python3_sitelib} -name '*.exe' | xargs rm -f
+@@ -120,9 +153,14 @@ chmod +x %{buildroot}%{python3_sitelib}/setuptools/command/easy_install.py
+ popd
+ %endif # with_python3
+ 
++%if 0%{?build_wheel}
++pip2 install -I dist/%{python2_wheelname} --root %{buildroot} --strip-file-prefix %{buildroot}
++%else
+ %{__python} setup.py install --skip-build --root %{buildroot}
++%endif
+ 
+ rm -rf %{buildroot}%{python_sitelib}/setuptools/tests
++sed -i '/^setuptools\/tests\//d' %{buildroot}%{python2_record}
+ 
+ install -p -m 0644 %{SOURCE1} %{SOURCE2} .
+ find %{buildroot}%{python_sitelib} -name '*.exe' | xargs rm -f
+@@ -157,10 +195,29 @@ rm -rf %{buildroot}
+ %endif # with_python3
+ 
+ %changelog
++* Thu Dec 12 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 2.0-4
++- Exclude removed files from wheel RECORD.
++
++* Wed Dec 11 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 2.0-3
++- Rebuild as a wheel.
++
++* Wed Dec 11 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 2.0-2
++- Rebuild with wheel building patches.
++
+ * Mon Dec  9 2013 Toshio Kuratomi <toshio@fedoraproject.org> - 2.0-1
+ - Update to new upstream release with a few things removed from the API:
+   Changelog: https://pypi.python.org/pypi/setuptools#id139
+ 
++* Fri Nov 29 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 1.4-4
++- Remove the "easy_install" binary created by Python 3 version, since pip
++install wheel doesn't overwrite it with Python 2 version.
++
++* Fri Nov 29 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 1.4-3
++- Enable building as wheel.
++
++* Thu Nov 28 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 1.4-2
++- Add logic to build setuptools as wheel.
++
+ * Mon Nov 18 2013 Toshio Kuratomi <toshio@fedoraproject.org> - 1.4-1
+ - Update to 1.4 that gives easy_install pypi credential handling
+ 

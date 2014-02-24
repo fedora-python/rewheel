@@ -1,0 +1,476 @@
+diff --git a/pip-1.4-make-wheel-respect-root.patch b/pip-1.4-make-wheel-respect-root.patch
+new file mode 100644
+index 0000000..4710c3c
+--- /dev/null
++++ b/pip-1.4-make-wheel-respect-root.patch
+@@ -0,0 +1,73 @@
++commit 97507f8931c469f88d2f9e8e71f1c66fe9585b39
++Author: Donald Stufft <donald@stufft.io>
++Date:   Wed Oct 30 08:03:47 2013 -0400
++
++    Make Wheel respect --root
++
++diff --git a/pip/locations.py b/pip/locations.py
++index b8b5d8e..21fa6df 100644
++--- a/pip/locations.py
+++++ b/pip/locations.py
++@@ -127,7 +127,7 @@ else:
++         default_log_file = os.path.join(user_dir, 'Library/Logs/pip.log')
++ 
++ 
++-def distutils_scheme(dist_name, user=False, home=None):
+++def distutils_scheme(dist_name, user=False, home=None, root=None):
++     """
++     Return a distutils install scheme
++     """
++@@ -139,6 +139,7 @@
++     i = install(d)
++     i.user = user or i.user
++     i.home = home or i.home
+++    i.root = root or i.root
++     i.finalize_options()
++     for key in SCHEME_KEYS:
++         scheme[key] = getattr(i, 'install_'+key)
++diff --git a/pip/req.py b/pip/req.py
++index b1c7c43..1b28b51 100644
++--- a/pip/req.py
+++++ b/pip/req.py
++@@ -612,7 +612,7 @@ exec(compile(open(__file__).read().replace('\\r\\n', '\\n'), __file__, 'exec'))
++             self.install_editable(install_options, global_options)
++             return
++         if self.is_wheel:
++-            self.move_wheel_files(self.source_dir)
+++            self.move_wheel_files(self.source_dir, root=root)
++             self.install_succeeded = True
++             return
++ 
++@@ -831,8 +831,13 @@ exec(compile(open(__file__).read().replace('\\r\\n', '\\n'), __file__, 'exec'))
++         self._bundle_build_dirs = bundle_build_dirs
++         self._bundle_editable_dirs = bundle_editable_dirs
++ 
++-    def move_wheel_files(self, wheeldir):
++-        move_wheel_files(self.name, self.req, wheeldir, user=self.use_user_site, home=self.target_dir)
+++    def move_wheel_files(self, wheeldir, root=None):
+++        move_wheel_files(
+++            self.name, self.req, wheeldir,
+++            user=self.use_user_site,
+++            home=self.target_dir,
+++            root=root,
+++        )
++ 
++     @property
++     def delete_marker_filename(self):
++diff --git a/pip/wheel.py b/pip/wheel.py
++index f6e200e..2bb36ad 100644
++--- a/pip/wheel.py
+++++ b/pip/wheel.py
++@@ -103,10 +103,10 @@ def root_is_purelib(name, wheeldir):
++                         return True
++     return False
++ 
++-def move_wheel_files(name, req, wheeldir, user=False, home=None):
+++def move_wheel_files(name, req, wheeldir, user=False, home=None, root=None):
++     """Install a wheel"""
++ 
++-    scheme = distutils_scheme(name, user=user, home=home)
+++    scheme = distutils_scheme(name, user=user, home=home, root=root)
++ 
++     if root_is_purelib(name, wheeldir):
++         lib_dir = scheme['purelib']
+diff --git a/pip-1.5rc1-allow-stripping-prefix-from-wheel-RECORD-files.patch b/pip-1.5rc1-allow-stripping-prefix-from-wheel-RECORD-files.patch
+new file mode 100644
+index 0000000..db4aa8f
+--- /dev/null
++++ b/pip-1.5rc1-allow-stripping-prefix-from-wheel-RECORD-files.patch
+@@ -0,0 +1,99 @@
++commit aefacbb76661520415a1c35028f2984e70cfe0bf
++Author: Slavek Kabrda <bkabrda@redhat.com>
++Date:   Fri Nov 29 13:24:58 2013 +0100
++
++    Allow stripping given prefix from wheel RECORD files
++
++diff --git a/pip/commands/install.py b/pip/commands/install.py
++index 1693d01..0287c06 100644
++--- a/pip/commands/install.py
+++++ b/pip/commands/install.py
++@@ -137,6 +137,14 @@ class InstallCommand(Command):
++             help="Install everything relative to this alternate root directory.")
++ 
++         cmd_opts.add_option(
+++            '--strip-file-prefix',
+++            dest='strip_file_prefix',
+++            metavar='prefix',
+++            default=None,
+++            help="Strip given prefix from script paths in wheel RECORD."
+++        )
+++
+++        cmd_opts.add_option(
++             "--compile",
++             action="store_true",
++             dest="compile",
++@@ -273,7 +281,11 @@ class InstallCommand(Command):
++                 requirement_set.locate_files()
++ 
++             if not options.no_install and not self.bundle:
++-                requirement_set.install(install_options, global_options, root=options.root_path)
+++                requirement_set.install(
+++                    install_options,
+++                    global_options,
+++                    root=options.root_path,
+++                    strip_file_prefix=options.strip_file_prefix)
++                 installed = ' '.join([req.name for req in
++                                       requirement_set.successfully_installed])
++                 if installed:
++diff --git a/pip/req.py b/pip/req.py
++index 3ae306d..c171130 100644
++--- a/pip/req.py
+++++ b/pip/req.py
++@@ -615,12 +615,16 @@ exec(compile(open(__file__).read().replace('\\r\\n', '\\n'), __file__, 'exec'))
++         name = name.replace(os.path.sep, '/')
++         return name
++ 
++-    def install(self, install_options, global_options=(), root=None):
+++    def install(self, install_options, global_options=(), root=None, strip_file_prefix=None):
++         if self.editable:
++             self.install_editable(install_options, global_options)
++             return
++         if self.is_wheel:
++-            self.move_wheel_files(self.source_dir, root=root)
+++            self.move_wheel_files(
+++                self.source_dir,
+++                root=root,
+++                strip_file_prefix=strip_file_prefix
+++            )
++             self.install_succeeded = True
++             return
++ 
++@@ -844,13 +848,14 @@ exec(compile(open(__file__).read().replace('\\r\\n', '\\n'), __file__, 'exec'))
++         self._bundle_build_dirs = bundle_build_dirs
++         self._bundle_editable_dirs = bundle_editable_dirs
++ 
++-    def move_wheel_files(self, wheeldir, root=None):
+++    def move_wheel_files(self, wheeldir, root=None, strip_file_prefix=None):
++         move_wheel_files(
++             self.name, self.req, wheeldir,
++             user=self.use_user_site,
++             home=self.target_dir,
++             root=root,
++             pycompile=self.pycompile,
+++            strip_file_prefix=strip_file_prefix,
++         )
++ 
++     @property
++diff --git a/pip/wheel.py b/pip/wheel.py
++index fa3e270..3a366d0 100644
++--- a/pip/wheel.py
+++++ b/pip/wheel.py
++@@ -136,7 +136,7 @@ def get_entrypoints(filename):
++ 
++ 
++ def move_wheel_files(name, req, wheeldir, user=False, home=None, root=None,
++-        pycompile=True):
+++        pycompile=True, strip_file_prefix=None):
++     """Install a wheel"""
++ 
++     scheme = distutils_scheme(name, user=user, home=home, root=root)
++@@ -357,6 +357,8 @@ if __name__ == '__main__':
++                 writer.writerow(row)
++             for f in generated:
++                 h, l = rehash(f)
+++                if strip_file_prefix and f.startswith(strip_file_prefix):
+++                    f = os.path.join(os.sep, os.path.relpath(f, strip_file_prefix))
++                 writer.writerow((f, h, l))
++             for f in installed:
++                 writer.writerow((installed[f], '', ''))
+diff --git a/pip-1.5rc1-dont-uninstall-system-packages-when-using-root-and-ignore-installed.patch b/pip-1.5rc1-dont-uninstall-system-packages-when-using-root-and-ignore-installed.patch
+new file mode 100644
+index 0000000..e6ab5f3
+--- /dev/null
++++ b/pip-1.5rc1-dont-uninstall-system-packages-when-using-root-and-ignore-installed.patch
+@@ -0,0 +1,43 @@
++diff --git a/pip/commands/install.py b/pip/commands/install.py
++index 8cc6c41..1693d01 100644
++--- a/pip/commands/install.py
+++++ b/pip/commands/install.py
++@@ -243,6 +243,7 @@ class InstallCommand(Command):
++             target_dir=temp_target_dir,
++             session=session,
++             pycompile=options.compile,
+++            use_root=options.root_path,
++         )
++         for name in args:
++             requirement_set.add_requirement(
++diff --git a/pip/req.py b/pip/req.py
++index 0bbbf6c..3ae306d 100644
++--- a/pip/req.py
+++++ b/pip/req.py
++@@ -892,7 +892,7 @@ class RequirementSet(object):
++     def __init__(self, build_dir, src_dir, download_dir, download_cache=None,
++                  upgrade=False, ignore_installed=False, as_egg=False, target_dir=None,
++                  ignore_dependencies=False, force_reinstall=False, use_user_site=False,
++-                 session=None, pycompile=True):
+++                 session=None, pycompile=True, use_root=None):
++         self.build_dir = build_dir
++         self.src_dir = src_dir
++         self.download_dir = download_dir
++@@ -913,6 +913,7 @@ class RequirementSet(object):
++         self.target_dir = target_dir #set from --target option
++         self.session = session or PipSession()
++         self.pycompile = pycompile
+++        self.use_root = use_root
++ 
++     def __str__(self):
++         reqs = [req for req in self.requirements.values()
++@@ -1187,7 +1188,8 @@ class RequirementSet(object):
++                         if req_to_install.satisfied_by:
++                             if self.upgrade or self.ignore_installed:
++                                 #don't uninstall conflict if user install and and conflict is not user install
++-                                if not (self.use_user_site and not dist_in_usersite(req_to_install.satisfied_by)):
+++                                if not (self.use_user_site and not dist_in_usersite(req_to_install.satisfied_by)) \
+++                                        and not self.use_root:
++                                     req_to_install.conflicts_with = req_to_install.satisfied_by
++                                 req_to_install.satisfied_by = None
++                             else:
+diff --git a/pip-1.5rc1-fix-ignore-installed.patch b/pip-1.5rc1-fix-ignore-installed.patch
+new file mode 100644
+index 0000000..f8ace27
+--- /dev/null
++++ b/pip-1.5rc1-fix-ignore-installed.patch
+@@ -0,0 +1,44 @@
++commit e6348703fda16f8167d5e77715e999f187b314cd
++Author: Marcus Smith <qwcode@gmail.com>
++Date:   Fri Nov 29 12:49:14 2013 -0800
++
++    fix --ignore-installed (Issue #1097)
++
++diff --git a/pip/req.py b/pip/req.py
++index 0bbbf6c..5241e7b 100644
++--- a/pip/req.py
+++++ b/pip/req.py
++@@ -1183,7 +1183,8 @@ class RequirementSet(object):
++                                 install = False
++                         # req_to_install.req is only avail after unpack for URL pkgs
++                         # repeat check_if_exists to uninstall-on-upgrade (#14)
++-                        req_to_install.check_if_exists()
+++                        if not self.ignore_installed:
+++                            req_to_install.check_if_exists()
++                         if req_to_install.satisfied_by:
++                             if self.upgrade or self.ignore_installed:
++                                 #don't uninstall conflict if user install and and conflict is not user install
++diff --git a/tests/functional/test_install_upgrade.py b/tests/functional/test_install_upgrade.py
++index 89ce225..54c13de 100644
++--- a/tests/functional/test_install_upgrade.py
+++++ b/tests/functional/test_install_upgrade.py
++@@ -175,13 +175,14 @@ def test_should_not_install_always_from_cache(script):
++ 
++ def test_install_with_ignoreinstalled_requested(script):
++     """
++-    It installs package if ignore installed is set.
++-
+++    Test old conflicting package is completely ignored
++     """
++-    script.pip('install', 'INITools==0.1', expect_error=True)
++-    result = script.pip('install', '-I', 'INITools', expect_error=True)
+++    r = script.pip('install', 'INITools==0.1', expect_error=True)
+++    result = script.pip('install', '-I', 'INITools==0.3', expect_error=True)
++     assert result.files_created, 'pip install -I did not install'
++-    assert script.site_packages/'INITools-0.1-py%s.egg-info' % pyversion not in result.files_created
+++    # both the old and new metadata should be present.
+++    assert os.path.exists(script.site_packages_path/'INITools-0.1-py%s.egg-info' % pyversion)
+++    assert os.path.exists(script.site_packages_path/'INITools-0.3-py%s.egg-info' % pyversion)
++ 
++ 
++ def test_upgrade_vcs_req_with_no_dists_found(script, tmpdir):
+diff --git a/python-pip.spec b/python-pip.spec
+index d4aecd8..e4fb2a5 100644
+--- a/python-pip.spec
++++ b/python-pip.spec
+@@ -1,26 +1,43 @@
+ %if (! 0%{?rhel}) || 0%{?rhel} > 6
+ %global with_python3 1
++%global build_wheel 1
+ %endif
+ %if 0%{?rhel} && 0%{?rhel} < 6
+ %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
+ %endif
+ 
++%global prerel rc1
++
+ %global srcname pip
++%if 0%{?build_wheel}
++%global python2_wheelname %{srcname}-%{version}%{?prerel}-py2.py3-none-any.whl
++%if 0%{?with_python3}
++%global python3_wheelname %python2_wheelname
++%endif
++%endif
+ 
+ Name:           python-%{srcname}
+-Version:        1.4.1
+-Release:        1%{?dist}
++Version:        1.5
++Release:        %{?prerel:0.}5%{?prerel:.%{prerel}}%{?dist}
+ Summary:        A tool for installing and managing Python packages
+ 
+ Group:          Development/Libraries
+ License:        MIT
+ URL:            http://www.pip-installer.org
+-Source0:        http://pypi.python.org/packages/source/p/pip/%{srcname}-%{version}.tar.gz
++Source0:        http://pypi.python.org/packages/source/p/pip/%{srcname}-%{version}%{?prerel}.tar.gz
++# upstream fix for https://github.com/pypa/pip/issues/991, will be part of 1.5
++Patch0:         pip-1.5rc1-fix-ignore-installed.patch
++# https://github.com/pypa/pip/issues/1351
++Patch1:         pip-1.5rc1-allow-stripping-prefix-from-wheel-RECORD-files.patch
+ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+ 
+ BuildArch:      noarch
+ BuildRequires:  python-devel
+ BuildRequires:  python-setuptools
++%if 0%{?build_wheel}
++BuildRequires:  python-pip
++BuildRequires:  python-wheel
++%endif
+ Requires:       python-setuptools
+ 
+ %description
+@@ -37,6 +54,10 @@ Group:          Development/Libraries
+ 
+ BuildRequires:  python3-devel
+ BuildRequires:  python3-setuptools
++%if 0%{?build_wheel}
++BuildRequires:  python3-pip
++BuildRequires:  python3-wheel
++%endif
+ Requires:  python3-setuptools
+ 
+ %description -n python3-pip
+@@ -47,7 +68,10 @@ easy_installable should be pip-installable as well.
+ %endif # with_python3
+ 
+ %prep
+-%setup -q -n %{srcname}-%{version}
++%setup -q -n %{srcname}-%{version}%{?prerel}
++
++%patch0 -p1
++%patch1 -p1
+ 
+ %{__sed} -i '1d' pip/__init__.py
+ 
+@@ -57,11 +81,19 @@ cp -a . %{py3dir}
+ 
+ 
+ %build
++%if 0%{?build_wheel}
++%{__python} setup.py bdist_wheel
++%else
+ %{__python} setup.py build
++%endif
+ 
+ %if 0%{?with_python3}
+ pushd %{py3dir}
++%if 0%{?build_wheel}
++%{__python3} setup.py bdist_wheel
++%else
+ %{__python3} setup.py build
++%endif
+ popd
+ %endif # with_python3
+ 
+@@ -71,42 +103,21 @@ popd
+ 
+ %if 0%{?with_python3}
+ pushd %{py3dir}
++%if 0%{?build_wheel}
++pip3 install -I dist/%{python3_wheelname} --root %{buildroot} --strip-file-prefix %{buildroot}
++# TODO: we have to remove this by hand now, but it'd be nice if we wouldn't have to
++# (pip install wheel doesn't overwrite)
++rm %{buildroot}%{_bindir}/pip
++%else
+ %{__python3} setup.py install --skip-build --root %{buildroot}
+-
+-# Change the name of the python3 pip executable in order to not conflict with
+-# the python2 executable
+-mv %{buildroot}%{_bindir}/pip %{buildroot}%{_bindir}/python3-pip
+-
+-# after changing the pip-python binary name, make a symlink to the old name,
+-# that will be removed in a later version
+-# https://bugzilla.redhat.com/show_bug.cgi?id=855495
+-pushd %{buildroot}%{_bindir}
+-ln -s python3-pip pip-python3
+-
+-# The install process creates both pip and pip-<python_abiversion> that seem to
+-# be the same. Remove the extra script
+-%{__rm} -rf pip-3*
+-
+-popd
++%endif
+ %endif # with_python3
+ 
++%if 0%{?build_wheel}
++pip2 install -I dist/%{python2_wheelname} --root %{buildroot} --strip-file-prefix %{buildroot}
++%else
+ %{__python} setup.py install -O1 --skip-build --root %{buildroot}
+-
+-pushd %{buildroot}%{_bindir}
+-# The install process creates both pip and pip-<python_abiversion> that seem to
+-# be the same. Since removing pip-* also clobbers pip-python3, just remove pip-2*
+-%{__rm} -rf pip-2*
+-
+-# The pip executable no longer needs to be renamed to avoid conflict with perl-pip
+-# https://bugzilla.redhat.com/show_bug.cgi?id=958377
+-# However, we'll keep a python-pip alias for now
+-ln -s pip python-pip
+-
+-# after changing the pip-python binary name, make a symlink to the old name,
+-# that will be removed in a later version
+-# https://bugzilla.redhat.com/show_bug.cgi?id=855495
+-ln -s pip pip-python
+-popd
++%endif
+ 
+ 
+ %clean
+@@ -117,22 +128,38 @@ popd
+ 
+ %files
+ %defattr(-,root,root,-)
+-%doc PKG-INFO docs
++%doc LICENSE.txt README.rst docs
+ %attr(755,root,root) %{_bindir}/pip
+-%attr(755,root,root) %{_bindir}/pip-python
+-%attr(755,root,root) %{_bindir}/python-pip
++%attr(755,root,root) %{_bindir}/pip2*
+ %{python_sitelib}/pip*
+ 
+ %if 0%{?with_python3}
+ %files -n python3-pip
+ %defattr(-,root,root,-)
+-%doc PKG-INFO docs
+-%attr(755,root,root) %{_bindir}/pip-python3
+-%attr(755,root,root) %{_bindir}/python3-pip
++%doc LICENSE.txt README.rst docs
++%attr(755,root,root) %{_bindir}/pip3*
+ %{python3_sitelib}/pip*
+ %endif # with_python3
+ 
+ %changelog
++* Tue Dec 03 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 1.5-0.5.rc1
++- Fix the --ignore-installed by upstream patch.
++
++* Fri Nov 29 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 1.5-0.4.rc1
++- Remove the "pip" binary created by Python 3 version, since pip install wheel
++doesn't overwrite it with Python 2 version.
++
++* Fri Nov 29 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 1.5-0.3.rc1
++- Enable building as wheel.
++
++* Fri Nov 29 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 1.5-0.2.rc1
++- Add logic to build pip as wheel.
++
++* Thu Nov 28 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 1.5-0.1.rc1
++- Update to 1.5rc1.
++- Patch install to really ignore installed packages with --root --ignore-installed.
++- Add patch that allows stripping given prefix from entries in wheel RECORD.
++
+ * Mon Oct 14 2013 Tim Flink <tflink@fedoraproject.org> - 1.4.1-1
+ - Removed patch for CVE 2013-2099 as it has been included in the upstream 1.4.1 release
+ - Updated version to 1.4.1
