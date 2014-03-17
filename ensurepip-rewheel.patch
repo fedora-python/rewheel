@@ -12,11 +12,12 @@ diff -r 15a6be05e970 Lib/ensurepip/__init__.py
  
  
  __all__ = ["version", "bootstrap"]
-@@ -38,6 +40,7 @@
+@@ -38,6 +40,8 @@
  
      # Install the bundled software
      import pip
-+    args.append('--pre')
++    if args[0] in ["install", "list", "wheel"]:
++        args.append('--pre')
      pip.main(args)
  
  
