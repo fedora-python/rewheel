@@ -81,10 +81,14 @@ def rewheel_from_record(record_path, outdir):
 
 def get_wheel_name(record_path):
     """Return proper name of the wheel, without .whl."""
+
     wheel_info_path = os.path.join(os.path.dirname(record_path), 'WHEEL')
-    wheel_info = email.parser.Parser().parsestr(open(wheel_info_path).read())
+    with open(wheel_info_path) as wheel_info_file:
+        wheel_info = email.parser.Parser().parsestr(wheel_info_file.read())
+
     metadata_path = os.path.join(os.path.dirname(record_path), 'METADATA')
-    metadata = email.parser.Parser().parsestr(open(metadata_path).read())
+    with open(metadata_path) as metadata_file:
+        metadata = email.parser.Parser().parsestr(metadata_file.read())
 
     # construct name parts according to wheel spec
     distribution = metadata.get('Name')
@@ -106,7 +110,8 @@ def get_records_to_pack(site_dir, record_relpath):
     - list of files that shouldn't be written or need some processing
       (pyc and pyo files, scripts)
     """
-    record_contents = open(os.path.join(site_dir, record_relpath)).read()
+    with open(os.path.join(site_dir, record_relpath)) as record_file:
+        record_contents = record_file.read()
     # temporary fix for https://github.com/pypa/pip/issues/1376
     # we need to ignore files under ".data" directory
     data_dir = os.path.dirname(record_relpath).strip(os.path.sep)
