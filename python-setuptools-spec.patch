@@ -65,7 +65,7 @@ index 221c55f..4c30551 100644
  popd
  %endif # with_python3
  
-@@ -110,9 +134,18 @@ rm -rf %{buildroot}
+@@ -110,9 +136,20 @@ rm -rf %{buildroot}
  # Change to defaulting to python3 version in F22
  %if 0%{?with_python3}
  pushd %{py3dir}
@@ -80,11 +80,13 @@ index 221c55f..4c30551 100644
 +%endif
  
  rm -rf %{buildroot}%{python3_sitelib}/setuptools/tests
++%if 0%{?build_wheel}
 +sed -i '/^setuptools\/tests\//d' %{buildroot}%{python3_record}
++%endif
  
  install -p -m 0644 %{SOURCE1} %{SOURCE2} %{py3dir}
  find %{buildroot}%{python3_sitelib} -name '*.exe' | xargs rm -f
-@@ -120,9 +153,14 @@ chmod +x %{buildroot}%{python3_sitelib}/setuptools/command/easy_install.py
+@@ -120,9 +155,16 @@ chmod +x %{buildroot}%{python3_sitelib}/setuptools/command/easy_install.py
  popd
  %endif # with_python3
  
@@ -95,7 +97,9 @@ index 221c55f..4c30551 100644
 +%endif
  
  rm -rf %{buildroot}%{python_sitelib}/setuptools/tests
++%if 0%{?build_wheel}
 +sed -i '/^setuptools\/tests\//d' %{buildroot}%{python2_record}
++%endif
  
  install -p -m 0644 %{SOURCE1} %{SOURCE2} .
  find %{buildroot}%{python_sitelib} -name '*.exe' | xargs rm -f
