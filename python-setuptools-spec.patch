@@ -23,7 +23,7 @@ index 221c55f..4c30551 100644
  Name:           python-setuptools
  Version:        2.0
 -Release:        1%{?dist}
-+Release:        4%{?dist}
++Release:        2%{?dist}
  Summary:        Easily build and distribute Python packages
  
  Group:          Applications/System
@@ -99,33 +99,3 @@ index 221c55f..4c30551 100644
  
  install -p -m 0644 %{SOURCE1} %{SOURCE2} .
  find %{buildroot}%{python_sitelib} -name '*.exe' | xargs rm -f
-@@ -157,10 +195,29 @@ rm -rf %{buildroot}
- %endif # with_python3
- 
- %changelog
-+* Thu Dec 12 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 2.0-4
-+- Exclude removed files from wheel RECORD.
-+
-+* Wed Dec 11 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 2.0-3
-+- Rebuild as a wheel.
-+
-+* Wed Dec 11 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 2.0-2
-+- Rebuild with wheel building patches.
-+
- * Mon Dec  9 2013 Toshio Kuratomi <toshio@fedoraproject.org> - 2.0-1
- - Update to new upstream release with a few things removed from the API:
-   Changelog: https://pypi.python.org/pypi/setuptools#id139
- 
-+* Fri Nov 29 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 1.4-4
-+- Remove the "easy_install" binary created by Python 3 version, since pip
-+install wheel doesn't overwrite it with Python 2 version.
-+
-+* Fri Nov 29 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 1.4-3
-+- Enable building as wheel.
-+
-+* Thu Nov 28 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 1.4-2
-+- Add logic to build setuptools as wheel.
-+
- * Mon Nov 18 2013 Toshio Kuratomi <toshio@fedoraproject.org> - 1.4-1
- - Update to 1.4 that gives easy_install pypi credential handling
- 
