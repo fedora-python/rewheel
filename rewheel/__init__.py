@@ -48,7 +48,10 @@ def find_system_records(projects):
             # if we have 0 or 2 or more dirs, something is wrong...
             if len(filtered) == 1:
                 path = filtered[0]
-        records.append(os.path.join(path, 'RECORD'))
+        if path is not None:
+            records.append(os.path.join(path, 'RECORD'))
+        else:
+            records.append(None)
     return records
 
 def rewheel_from_record(record_path, outdir):
