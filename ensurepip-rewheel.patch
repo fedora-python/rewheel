@@ -44,8 +44,7 @@ diff -r 15a6be05e970 Lib/ensurepip/__init__.py
 +        for project, version in _PROJECTS:
 +            whl = os.path.join(
 +                os.path.dirname(__file__),
-+                "ensurepip",
-+                "bundled",
++                "_bundled",
 +                "{}-{}-py2.py3-none-any.whl".format(project, version)
 +            )
 +            whls.append(whl)
