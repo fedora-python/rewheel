@@ -1,4 +1,5 @@
 import argparse
+import codecs
 import csv
 import email.parser
 import os
@@ -86,11 +87,11 @@ def get_wheel_name(record_path):
     """Return proper name of the wheel, without .whl."""
 
     wheel_info_path = os.path.join(os.path.dirname(record_path), 'WHEEL')
-    with open(wheel_info_path) as wheel_info_file:
+    with codecs.open(wheel_info_path, encoding='utf-8') as wheel_info_file:
         wheel_info = email.parser.Parser().parsestr(wheel_info_file.read())
 
     metadata_path = os.path.join(os.path.dirname(record_path), 'METADATA')
-    with open(metadata_path) as metadata_file:
+    with codecs.open(metadata_path, encoding='utf-8') as metadata_file:
         metadata = email.parser.Parser().parsestr(metadata_file.read())
 
     # construct name parts according to wheel spec
@@ -113,7 +114,8 @@ def get_records_to_pack(site_dir, record_relpath):
     - list of files that shouldn't be written or need some processing
       (pyc and pyo files, scripts)
     """
-    with open(os.path.join(site_dir, record_relpath)) as record_file:
+    record_file_path = os.path.join(site_dir, record_relpath)
+    with codecs.open(record_file_path, encoding='utf-8') as record_file:
         record_contents = record_file.read()
     # temporary fix for https://github.com/pypa/pip/issues/1376
     # we need to ignore files under ".data" directory
