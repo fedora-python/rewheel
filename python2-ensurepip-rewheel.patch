@@ -31,10 +31,10 @@ diff -Nur Python-2.7.9/Lib/ensurepip/__init__.py Python-2.7.9-rewheel/Lib/ensure
 +    if all(dep_records):
 +        # if we have all _PROJECTS installed system-wide, we'll recreate
 +        # wheels from them and install those
-+        rewheel_dir = tempfile.TemporaryDirectory()
++        rewheel_dir = tempfile.mkdtemp()
 +        for dr in dep_records:
-+            new_whl = rewheel.rewheel_from_record(dr, rewheel_dir.name)
-+            whls.append(os.path.join(rewheel_dir.name, new_whl))
++            new_whl = rewheel.rewheel_from_record(dr, rewheel_dir)
++            whls.append(os.path.join(rewheel_dir, new_whl))
 +    else:
 +        # if we don't have all the _PROJECTS installed system-wide,
 +        # let's just fall back to bundled wheels
@@ -65,7 +65,7 @@ diff -Nur Python-2.7.9/Lib/ensurepip/__init__.py Python-2.7.9-rewheel/Lib/ensure
 +            shutil.copy(whl, tmpdir)
 +            additional_paths.append(os.path.join(tmpdir, os.path.basename(whl)))
 +        if rewheel_dir:
-+            rewheel_dir.cleanup()
++            shutil.rmtree(rewheel_dir)
  
          # Construct the arguments to be passed to the pip command
          args = ["install", "--no-index", "--find-links", tmpdir]
@@ -81,3 +81,24 @@ diff -Nur Python-2.7.9/Makefile.pre.in Python-2.7.9-rewheel/Makefile.pre.in
  		json json/tests \
  		sqlite3 sqlite3/test \
  		logging bsddb bsddb/test csv importlib wsgiref \
+diff -up Python-2.7.9/Lib/ensurepip/__init__.py.ensure Python-2.7.9/Lib/ensurepip/__init__.py
+--- Python-2.7.9/Lib/ensurepip/__init__.py.ensure	2015-03-05 11:36:58.509976288 +0100
++++ Python-2.7.9/Lib/ensurepip/__init__.py	2015-03-05 11:38:48.362054753 +0100
+@@ -9,13 +9,15 @@ import sys
+ import tempfile
+ from ensurepip import rewheel
+ 
++import setuptools
++import pip
+ 
+ __all__ = ["version", "bootstrap"]
+ 
+ 
+-_SETUPTOOLS_VERSION = "7.0"
++_SETUPTOOLS_VERSION = setuptools.version.__version__
+ 
+-_PIP_VERSION = "1.5.6"
++_PIP_VERSION = pip.__version__
+ 
+ # pip currently requires ssl support, so we try to provide a nicer
+ # error message when that is missing (http://bugs.python.org/issue19744)
