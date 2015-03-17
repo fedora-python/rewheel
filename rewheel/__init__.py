@@ -37,12 +37,16 @@ def find_system_records(projects):
     records = []
     # get system site-packages dirs
     if hasattr(sys, 'real_prefix'):
-        #we are in virtualenv and sys.real_prefix is the original sys.prefix
+        #we are in python2 virtualenv and sys.real_prefix is the original sys.prefix
         _orig_prefixes = site.PREFIXES
         setattr(site, 'PREFIXES', [sys.real_prefix]*2)
         sys_sitepack = site.getsitepackages()
         setattr(site, 'PREFIXES', _orig_prefixes)
+    elif hasattr(sys, 'base_prefix'): # python3 venv doesn't inject real_prefix to sys
+        # we are on python3 and base(_exec)_prefix is unchanged in venv
+        sys_sitepack = site.getsitepackages([sys.base_prefix, sys.base_exec_prefix])
     else:
+        # we are in python2 without virtualenv
         sys_sitepack = site.getsitepackages()
 
     sys_sitepack = [sp for sp in sys_sitepack if os.path.exists(sp)]
