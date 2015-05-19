@@ -71,3 +71,15 @@ diff -r 15a6be05e970 Lib/ensurepip/__init__.py
  
          # Construct the arguments to be passed to the pip command
          args = ["install", "--no-index", "--find-links", tmpdir]
+diff -Naurp a/Makefile.pre.in b/Makefile.pre.in
+--- a/Makefile.pre.in	2015-02-25 05:27:45.000000000 -0600
++++ b/Makefile.pre.in	2015-05-19 09:51:41.283355029 -0500
+@@ -1159,7 +1159,7 @@ LIBSUBDIRS=	tkinter tkinter/test tkinter
+ 		test/test_asyncio \
+ 		collections concurrent concurrent/futures encodings \
+ 		email email/mime test/test_email test/test_email/data \
+-		ensurepip ensurepip/_bundled \
++		ensurepip ensurepip/_bundled ensurepip/rewheel \
+ 		html json test/test_json http dbm xmlrpc \
+ 		sqlite3 sqlite3/test \
+ 		logging csv wsgiref urllib \
