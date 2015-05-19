@@ -1,10 +1,12 @@
-diff -r 15a6be05e970 Lib/ensurepip/__init__.py
---- a/Lib/ensurepip/__init__.py	Tue Feb 11 11:54:08 2014 +0100
-+++ b/Lib/ensurepip/__init__.py	Tue Feb 11 12:42:44 2014 +0100
-@@ -1,8 +1,10 @@
+diff -Naurp a/Lib/ensurepip/__init__.py b/Lib/ensurepip/__init__.py
+--- a/Lib/ensurepip/__init__.py	2015-02-25 05:27:44.000000000 -0600
++++ b/Lib/ensurepip/__init__.py	2015-05-19 10:31:19.023778636 -0500
+@@ -1,16 +1,20 @@
  import os
  import os.path
++import pip
  import pkgutil
++import setuptools
 +import shutil
  import sys
  import tempfile
@@ -12,7 +14,17 @@ diff -r 15a6be05e970 Lib/ensurepip/__init__.py
  
  
  __all__ = ["version", "bootstrap"]
-@@ -38,6 +40,8 @@
+ 
+ 
+-_SETUPTOOLS_VERSION = "12.0.5"
++_SETUPTOOLS_VERSION = setuptools.version.__version__
+ 
+-_PIP_VERSION = "6.0.8"
++_PIP_VERSION = pip.__version__
+ 
+ # pip currently requires ssl support, so we try to provide a nicer
+ # error message when that is missing (http://bugs.python.org/issue19744)
+@@ -38,6 +42,8 @@ def _run_pip(args, additional_paths=None
  
      # Install the bundled software
      import pip
@@ -21,7 +33,7 @@ diff -r 15a6be05e970 Lib/ensurepip/__init__.py
      pip.main(args)
  
  
-@@ -87,20 +90,40 @@
+@@ -87,20 +93,39 @@ def bootstrap(*, root=None, upgrade=Fals
          # omit pip and easy_install
          os.environ["ENSUREPIP_OPTIONS"] = "install"
  
